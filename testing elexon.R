@@ -54,4 +54,24 @@ fuelINST_csv <- rawToChar(fuelINST_raw$content)
 fuelINST_HH <- read.table(text = fuelINST_csv, sep=',', fill = TRUE) 
 tail(fuelINST_HH)
 
+#----------
+
+#3. Wind generation alternative
+
+service2 <- 'B1630' #In this case we change this variable
+SettlementDate <- '2018-11-13'
+Period <- '*'
+ServiceType2 <- 'csv'
+url2 <- capture.output(cat('https://api.bmreports.com/BMRS/', service2, '/v1?APIKey=', APIKey,
+                           '&SettlementDate=', SettlementDate,
+                           '&Period=', Period,
+                           '&ServiceType=', ServiceType2, sep = ''))
+
+fuelWind_raw <- GET(url = url2) 
+names(fuelWind_raw)
+
+fuelWind_csv <- rawToChar(fuelWind_raw$content)
+fuelWind_HH <- read.table(text = fuelWind_csv, sep=',', fill = TRUE) 
+
+
 
