@@ -6,6 +6,7 @@ library(httr)
 library(ggplot2)
 library(dplyr)
 library(tidyverse)
+library(lubridate)
 #1. This first lines of code are to obtain 5.2.17 Half Hourly Outturn Generation by Fuel Type
 
 service <- 'FuelHH' #The service is the main variable that links with the different requests
@@ -116,8 +117,8 @@ Agg_Gen__HH <- read.table(text = Agg_Gen_csv, sep=',', fill = TRUE)
 #6. B1610 - Actual Genreation Ouput per Generation Unit
 
 service5 <- 'B1610' #In this case we change this variable
-SettlementDate <- '2018-11-13'
-Period <- '25'
+SettlementDate <- '2018-11-16'
+Period <- '*'
 ServiceType5 <- 'csv'
 url5 <- capture.output(cat('https://api.bmreports.com/BMRS/', service5, '/v1?APIKey=', APIKey,
                            '&SettlementDate=', SettlementDate,
@@ -130,32 +131,38 @@ names(Gen_Per_Unit_raw)
 Gen_Per_Unit_csv <- rawToChar(Gen_Per_Unit_raw$content)
 Gen_Per_Unit__HH <- read.table(text = Gen_Per_Unit_csv, sep=',', fill = TRUE) 
 Gen_Per_Unit__HH <- Gen_Per_Unit__HH[-c(1, 2, 3, 4),]
+
+
+#### IMporting Market Index Data
+service6 <- 'MID' #In this case we change this variable
+FromSettlementDate <- '2018-11-16'
+ToSettlementDate <- '2018-11-16'
+Period <- '*'
+ServiceType6 <- 'csv'
+url6 <- capture.output(cat('https://api.bmreports.com/BMRS/', service6, '/v1?APIKey=', APIKey,
+                           '&FromSettlementDate=', FromSettlementDate,
+                           '&ToSettlementDate=', ToSettlementDate,
+                           '&Period=', Period,
+                           '&ServiceType=', ServiceType6, sep = ''))
+
+Bal_Mkt_Price_raw <- GET(url = url6) 
+names(Bal_Mkt_Price_raw)
+
+Bal_Mkt_Price_csv <- rawToChar(Bal_Mkt_Price_raw$content)
+Bal_Mkt_Price <- read.table(text = Bal_Mkt_Price_csv, sep=',', fill = TRUE) 
+Bal_Mkt_Price$V3 <- ymd(Bal_Mkt_Price$V3)
+Bal_Mkt_Price$V4 <- as.factor(Bal_Mkt_Price$V4)
+Bal_Mkt_Price <- Bal_Mkt_Price[-c((nrow(Bal_Mkt_Price)-48):nrow(Bal_Mkt_Price)),]
+
+
 ### Loading EIC codes
 EIC_codes_raw <- read.csv("EIC_Codes_Generation.csv",stringsAsFactors = F)
 Gen_Per_Unit__HH2 <- full_join(Gen_Per_Unit__HH, EIC_codes_raw, by = c("V11" = "Energy.Identification.Code") )
-Gen_Per_Unit__Only_Wind <- filter(Gen_Per_Unit__HH2, Gen_Per_Unit__HH2$BMRA_FUEL_TYPE == "WIND")
-Gen_Per_Unit__Only_Wind <- Gen_Per_Unit__Only_Wind[-c(77:130),]
+Gen_Per_Unit__HH2$V8 <- ymd(Gen_Per_Unit__HH2$V8)
+Gen_Per_Unit__HH2 <- full_join(Gen_Per_Unit__HH2, Bal_Mkt_Price, by=c("V8" = "V3","V9" = "V4"))
 
 
-# Load the package required to read XML files.
-install.packages("XML")
-library("XML")
-
-# Also load the other required package.
-install.packages("methods")
-library("methods")
-
-# Load the packages required to read XML files.
-library("XML")
-library("methods")
-
-# Convert the input xml file to a data frame.
-xmldataframe <- xmlToDataFrame("allocated-eic-codes.xml")
-print(xmldataframe)
-
-# Give the input file name to the function.
 
 
-# Print the result.
-print(result)
+
 
