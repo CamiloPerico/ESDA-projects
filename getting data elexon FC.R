@@ -62,3 +62,16 @@ while (theDate <= end)
 generation_jan_2018 <- generationrange
 write.csv(generationrange,'generation012018.csv')
 
+
+#Code to merge the generation units with the price
+
+generationUnit_HH$`Settlement Date` <- ymd(generationUnit_HH$`Settlement Date`)
+names(generationUnit_HH)[8] <- "V3"
+names(generationUnit_HH)[9] <- "V4"
+
+Bal_Mkt_Price$V3 <- ymd(Bal_Mkt_Price$V3)
+
+generationUnit_HH <- left_join(generationUnit_HH,Bal_Mkt_Price, by = c("V3", "V4"))
+
+generationUnit_HH <- generationUnit_HH[,-c(10:21)]
+
