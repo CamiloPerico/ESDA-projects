@@ -12,8 +12,8 @@ Period <- '*'
 ServiceType <- 'csv'
 
 #Define the range that we want data from:
-start <- as.Date("01-02-18",format="%d-%m-%y")
-end   <- as.Date("02-02-18",format="%d-%m-%y")
+start <- as.Date("01-01-17",format="%d-%m-%y")
+end   <- as.Date("03-01-17",format="%d-%m-%y")
 
 theDate <- start
 #Define the matrix that will hold the data extracted
@@ -43,9 +43,10 @@ while (theDate <= end)
   theDate <- theDate+1
 }
 
-#Extract the price of Market data - NOT RUNNING WELL AT LEAST FOR ME
-service <- 'MID'
-Bal_Mkt_Price <- data.frame(matrix(ncol = 6, nrow = 0))
+#Now we get the price for each settlement period
+service_price <- 'MID'
+
+price_range <- data.frame(matrix(ncol = 6, nrow = 0))
 
 theDate2 <- start
 
@@ -53,7 +54,7 @@ while (theDate2 <= end)
 {
   FromSettlementDate <- theDate2
   ToSettlementDate <- theDate2
-  url6 <- capture.output(cat('https://api.bmreports.com/BMRS/', service6, '/v1?APIKey=', APIKey,
+  url6 <- capture.output(cat('https://api.bmreports.com/BMRS/', service_price, '/v1?APIKey=', APIKey,
                              '&FromSettlementDate=', format(FromSettlementDate),
                              '&ToSettlementDate=', format(ToSettlementDate),
                              '&Period=', Period,
@@ -68,19 +69,26 @@ while (theDate2 <= end)
   rownames(Bal_Mkt_Price_Loop) <- NULL
   print(url6)
   
-  Bal_Mkt_Price <- rbind(Bal_Mkt_Price, Bal_Mkt_Price_Loop)
+  price_range <- rbind(price_range, Bal_Mkt_Price_Loop)
   theDate2 <- theDate2+1
 }
 
-#Now We merge the two datasets from Elexon. generationrange and Bal_Mkt_Price
+#Now We merge the two datasets from Elexon. generationrange and price range
+#Changing the format of the date variable and renaiming the date and settlement hour to merge with price range
 generationrange$`Settlement Date` <- ymd(generationrange$`Settlement Date`)
 names(generationrange)[8] <- "V3"
 names(generationrange)[9] <- "V4"
 
-Bal_Mkt_Price$V3 <- ymd(Bal_Mkt_Price$V3)
-Bal_Mkt_Price$V4 <- as.factor(Bal_Mkt_Price$V4)
+price_range$V3 <- ymd(price_range$V3)
+price_range$V4 <- as.factor(price_range$V4)
 
-generation_price <- left_join(generationrange,Bal_Mkt_Price, by = c("V3", "V4"))
+#Now we do a left merge from generatin range to price range by the settlement date and hour
+generation_price <- left_join(generationrange,price_range, by = c("V3", "V4"))
+
+#Now we eliminate the column we do not want from our dataset of generation and price
+generation_price <- subset(generation_price, select = c(5,8,9,11,15,22,23))
+
+names(generation_price)[1] <- "Energy Supply"
 
 #Now we merge the generation price dataset with the EIC Codes generation
 
