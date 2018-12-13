@@ -88,7 +88,11 @@ generation_price <- left_join(generationrange,price_range, by = c("V3", "V4"))
 #Now we eliminate the column we do not want from our dataset of generation and price
 generation_price <- subset(generation_price, select = c(5,8,9,11,15,22,23))
 
-names(generation_price)[1] <- "Energy Supply"
+names(generation_price)[1] <- "EnergySupply"
+names(generation_price)[2] <- "SettlementDate"
+names(generation_price)[3] <- "SettlementPeriod"
+names(generation_price)[6] <- "Price"
+names(generation_price)[7] <- "Volume"
 
 #Now we merge the generation price dataset with the EIC Codes generation
 
@@ -101,22 +105,3 @@ names(generation_price)[11] <- "VCode"
 generatio_unified <- left_join(generation_price, EIC_codes_raw, by = "VCode")
 
 write.csv(generatio_unified,'test.csv')
-colnames(generationrange) <-   c("*Document Type",
-                                 "Business Type",
-                                 "Process Type",
-                                 "Time Series ID",
-                                 "Quantity", 
-                                 "Curve Type",
-                                 "Resolution",
-                                 "Settlement Date",
-                                 "Settlement Period",
-                                 "Power System Resource  Type",
-                                 "Registered Resource EIC Code",
-                                 "Market Generation Unit EIC Code",
-                                 "Market Generation BMU Id", 
-                                 "Market Generation NGC BMU Id",
-                                 "BM Unit ID",
-                                 "NGC BM Unit ID",
-                                 "Active Flag",
-                                 "Document ID",
-                                 "Document RevNum")
