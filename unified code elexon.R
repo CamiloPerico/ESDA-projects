@@ -94,14 +94,15 @@ names(generation_price)[3] <- "SettlementPeriod"
 names(generation_price)[6] <- "Price"
 names(generation_price)[7] <- "Volume"
 
-#Now we merge the generation price dataset with the EIC Codes generation
+#Now we merge by the EIC Code the generation price dataset with the EIC Codes generation
 
 EIC_codes_raw <- read.csv("EIC_Codes_Generation.csv",stringsAsFactors = F)
 EIC_codes_raw <- EIC_codes_raw[,-c(3,4,8,10:13,15)]
 names(EIC_codes_raw)[3] <- "Registered Resource EIC Code"
 
-#names(generation_price)[11] <- "VCode"
-
 generation_unified <- left_join(generation_price, EIC_codes_raw, by = "Registered Resource EIC Code")
 
+#We now get a file with all the data BE CAREFUL REMOVE THIS FILE FROM YOUR GITHUB FOLDER TO DONT UPDATELOAD TO GITHUB
 write.csv(generation_unified,'generation_price_unit_2017.csv')
+
+
