@@ -105,3 +105,4 @@ names(generation_price)[11] <- "VCode"
 generatio_unified <- left_join(generation_price, EIC_codes_raw, by = "VCode")
 
 write.csv(generatio_unified,'test.csv')
+testing <- "info"
