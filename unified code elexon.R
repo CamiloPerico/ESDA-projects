@@ -13,7 +13,7 @@ ServiceType <- 'csv'
 
 #Define the range that we want data from:
 start <- as.Date("01-01-17",format="%d-%m-%y")
-end   <- as.Date("03-01-17",format="%d-%m-%y")
+end   <- as.Date("31-12-17",format="%d-%m-%y")
 
 theDate <- start
 #Define the matrix that will hold the data extracted
@@ -97,12 +97,11 @@ names(generation_price)[7] <- "Volume"
 #Now we merge the generation price dataset with the EIC Codes generation
 
 EIC_codes_raw <- read.csv("EIC_Codes_Generation.csv",stringsAsFactors = F)
-EIC_codes_raw <- EIC_codes_raw[,-c(3,4,8,10:13,19:88)]
-names(EIC_codes_raw)[3] <- "VCode"
+EIC_codes_raw <- EIC_codes_raw[,-c(3,4,8,10:13,15)]
+names(EIC_codes_raw)[3] <- "Registered Resource EIC Code"
 
-names(generation_price)[11] <- "VCode"
+#names(generation_price)[11] <- "VCode"
 
-generatio_unified <- left_join(generation_price, EIC_codes_raw, by = "VCode")
+generation_unified <- left_join(generation_price, EIC_codes_raw, by = "Registered Resource EIC Code")
 
-write.csv(generatio_unified,'test.csv')
-testing <- "info"
+write.csv(generation_unified,'generation_price_unit_2017.csv')
