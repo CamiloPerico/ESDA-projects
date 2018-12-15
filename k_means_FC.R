@@ -7,6 +7,7 @@ library(lubridate)
 df <- read.csv("generation_price_unit_JAN2017.csv")
 df <- select(df, -c(1))
 df <- select(df, SettlementDate, SettlementPeriod, everything())
+names(df)[4] = "Code"
 
 levels(df$BMRA_FUEL_TYPE)
 
@@ -36,7 +37,7 @@ for(i in 1:length(random_code)){
 ggplot(wind_sample[ind,])+ 
   geom_line(aes(x=as.numeric(SettlementPeriod),y=EnergySupply, group=Code,col=as.factor(Code)))
 
-#K-Means analysis per hour
+#K-Means analysis per hour WIND
 store_ss <- vector("numeric",length=20) 
 for(i in 1:20){
   foo <- kmeans(wind[,3:50],(i+1))
@@ -82,7 +83,7 @@ for(i in 1:length(random_code1)){
 ggplot(byday_wind[ind1,])+ 
   geom_line(aes(x=as.factor(day),y=total, group=code,col=as.factor(code)))
 
-#Now we try K-means per day
+#Now we try K-means WIND per day
 byday_wind_spread <- spread(byday_wind, key = "day", value = "total")
 byday_wind_spread[is.na(byday_wind_spread)] <- 0
 
@@ -112,4 +113,155 @@ byday_wind_long$date <- ymd(byday_wind_long$date)
 
 
 ggplot(byday_wind_long)+geom_line(aes(x=(date),y=MwHr,group=code), alpha=.5)+
+  facet_wrap(~cluster,ncol=2)
+
+#K-Means for the price
+price <- subset(df, select = c(1,2,6))
+price <- unique(price)
+price_spread <- spread(price, key = "SettlementPeriod", value = "Price")
+price_spread[is.na(price_spread)] <- 0
+
+
+foo2 <- kmeans(price_spread[,2:49],4) 
+names(foo2)
+
+foo2$size
+
+df3 <- data.frame(foo2$centers)
+df3$cluster <- 1:4
+mu_long2 <- gather(df3,"time","price",1:48)
+mu_long2$time <- as.numeric(gsub("X","",(mu_long2$time))) 
+ggplot(mu_long2)+geom_line(aes(x=time,y=price,group=cluster,col=factor(cluster)))
+
+
+price_spread$cluster <- foo2$cluster
+price_long <- gather(price_spread,time,price,2:49)
+price_long$time <- as.numeric(gsub("X","",(price_long$time))) 
+price_long$SettlementDate <- ymd(price_long$SettlementDate)
+
+ggplot(price_long)+geom_line(aes(x=(time),y=price,group=SettlementDate), alpha=.5)+
+  facet_wrap(~cluster,ncol=2) + ggtitle("Price Cluster January")
+
+#We want to see first the total generation of each fuel for january
+tapply(df$EnergySupply, df$BMRA_FUEL_TYPE, FUN=sum)
+sum(df$EnergySupply)
+
+#Now we try k-means for the most importat fuel in the UK which is CCGT
+
+df_CCGT_long <- filter(df, BMRA_FUEL_TYPE == "CCGT")
+df_CCGT_long <- subset(df_CCGT_long, select = c(1,2,3,4))
+df_CCGT <- spread(df_CCGT_long, key = "SettlementPeriod", value = "EnergySupply")
+
+colSums(is.na(df_CCGT))
+colSums(is.na(df_CCGT_long))
+df_CCGT[is.na(df_CCGT)] <- 0
+
+store_ss_ccgt <- vector("numeric", length = 20)
+for (i in 1:20) {
+  foo_ccgt <- kmeans(df_CCGT[,3:50],(i+1))
+  store_ss_ccgt[i] <- foo_ccgt$tot.withinss 
+}
+plot(2:21, store_ss_ccgt, 'b')
+
+foo_ccgt <- kmeans(df_CCGT[,3:50],4)
+names(foo_ccgt)
+foo_ccgt$size
+
+
+df1_ccgt <- data.frame(foo_ccgt$centers)
+df1_ccgt$cluster <- 1:4
+mu_long_ccgt <- gather(df1_ccgt,"time","MwHr",1:48)
+mu_long_ccgt$time <- as.numeric(gsub("X","",(mu_long_ccgt$time))) 
+ggplot(mu_long_ccgt)+geom_line(aes(x=time,y=MwHr,group=cluster,col=factor(cluster))) + 
+  ggtitle("CCGT Cluster Jan2017 kmeans")
+
+
+df_CCGT$cluster <- foo_ccgt$cluster
+df_CCGT_long <- gather(df_CCGT, time, MWh, 3:50)
+df_CCGT_long$time <- as.numeric(gsub("X","",(df_CCGT_long$time)))
+df_CCGT_long$SettlementDate <- ymd(df_CCGT_long$SettlementDate)
+
+
+uk_wind_long$day_of_week <- wday(uk_wind_long$SettlementDate,label=TRUE)
+
+ggplot(df_CCGT_long)+geom_line(aes(x=(time),y=MWh,group=SettlementDate), alpha=.5)+
+  facet_wrap(~cluster,ncol=2)
+
+#K means analysis for Nuclear Energy
+
+df_nuclear_long <- filter(df, BMRA_FUEL_TYPE == "NUCLEAR")
+df_nuclear_long <- subset(df_nuclear_long, select = c(1,2,3,4))
+df_nuclear <- spread(df_nuclear_long, key = "SettlementPeriod", value = "EnergySupply")
+
+colSums(is.na(df_nuclear))
+df_nuclear[is.na(df_nuclear)] <- 0
+
+store_ss_nuclear <- vector("numeric", length = 20)
+for (i in 1:20) {
+  foo_nuclear <- kmeans(df_nuclear[,3:50],(i+1))
+  store_ss_nuclear[i] <- foo_nuclear$tot.withinss
+}
+plot(2:21, store_ss_nuclear, 'b')
+
+foo_nuclear <- kmeans(df_nuclear[,3:50],4)
+foo_nuclear$size
+
+df1_nuclear <- data.frame(foo_nuclear$centers)
+df1_nuclear$cluster <- 1:4
+mu_long_nuclear <- gather(df1_nuclear, "time", "MWh", 1:48)
+mu_long_nuclear$time <- as.numeric(gsub("X","",(mu_long_nuclear$time)))
+ggplot(mu_long_nuclear)+geom_line(aes(x=time,y=MWh,group=cluster,col=factor(cluster))) + 
+  ggtitle("NuclearCluster Jan2017 kmeans")
+
+df1_ccgt <- data.frame(foo_ccgt$centers)
+df1_ccgt$cluster <- 1:4
+mu_long_ccgt <- gather(df1_ccgt,"time","MwHr",1:48)
+mu_long_ccgt$time <- as.numeric(gsub("X","",(mu_long_ccgt$time))) 
+ggplot(mu_long_ccgt)+geom_line(aes(x=time,y=MwHr,group=cluster,col=factor(cluster))) + 
+  ggtitle("CCGT Cluster Jan2017 kmeans")
+
+
+df_nuclear$cluster <- foo_nuclear$cluster
+df_nuclear_long <- gather(df_nuclear, time, MWh, 3:50)
+df_nuclear_long$time <- as.numeric(gsub("X","",(df_nuclear_long$time)))
+df_nuclear_long$SettlementDate <- ymd(df_nuclear_long$SettlementDate)
+
+ggplot(df_nuclear_long)+geom_line(aes(x=(time),y=MWh,group=SettlementDate), alpha=.5)+
+  facet_wrap(~cluster,ncol=2)
+
+
+#Now we try with COAL which is the 3rd fuel in the electricity matrix
+
+df_coal_long <- filter(df, BMRA_FUEL_TYPE == "COAL")
+df_coal_long <- subset(df_coal_long, select = c(1,2,3,4))
+df_coal <- spread(df_coal_long, key = "SettlementPeriod", value = "EnergySupply")
+
+colSums(is.na(df_coal))
+df_coal[is.na(df_coal)] <- 0
+
+
+store_ss_coal<- vector("numeric", length = 20)
+for (i in 1:20) {
+  foo_coal <- kmeans(df_coal[,3:50],(i+1))
+  store_ss_coal[i] <- foo_coal$tot.withinss
+}
+plot(2:21, store_ss_coal, 'b')
+
+foo_coal <- kmeans(df_coal[,3:50],4)
+foo_coal$size
+
+df1_coal <- data.frame(foo_coal$centers)
+df1_coal$cluster <- 1:4
+mu_long_coal <- gather(df1_coal, "time", "MWh", 1:48)
+mu_long_coal$time <- as.numeric(gsub("X","",(mu_long_coal$time)))
+ggplot(mu_long_coal)+geom_line(aes(x=time,y=MWh,group=cluster,col=factor(cluster))) + 
+  ggtitle("Coal Cluster Jan2017 kmeans")
+
+
+df_coal$cluster <- foo_coal$cluster
+df_coal_long <- gather(df_coal, time, MWh, 3:50)
+df_coal_long$time <- as.numeric(gsub("X","",(df_coal_long$time)))
+df_coal_long$SettlementDate <- ymd(df_coal_long$SettlementDate)
+
+ggplot(df_coal_long)+geom_line(aes(x=(time),y=MWh,group=SettlementDate), alpha=.5)+
   facet_wrap(~cluster,ncol=2)
