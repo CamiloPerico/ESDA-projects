@@ -1,13 +1,3 @@
-remove_outliers <- function(x, na.rm = TRUE, ...) {
-  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-  H <- 1.5 * IQR(x, na.rm = na.rm)
-  y <- x
-  y[x < (qnt[1] - H)] <- NA
-  y[x > (qnt[2] + H)] <- NA
-  y
-}
-
-
 #This code test k-means for only wind farms during January
 #The results are hard to interpret for hourly basis which is why I analized the curve of generation per month
 
@@ -313,6 +303,6 @@ df_allfuels_long$SettlementDate <- ymd(df_allfuels_long$SettlementDate)
 ggplot(df_allfuels_long)+geom_smooth(aes(x=(time),y=remove_outliers(MWh),group=SettlementDate), alpha=.5)+
   facet_wrap(~cluster,ncol=2)
 
-#------Trying to renove outliers
+
 
 
