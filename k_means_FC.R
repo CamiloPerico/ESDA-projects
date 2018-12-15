@@ -1,3 +1,13 @@
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+
+
 #This code test k-means for only wind farms during January
 #The results are hard to interpret for hourly basis which is why I analized the curve of generation per month
 
@@ -25,6 +35,7 @@ colSums(is.na(wind))
 #wind_BLLA_1K <- filter(wind, Code == "48W000000BLLA-1K")
 wind[is.na(wind)] <- 0
 
+  
 #Visualization of curves
 wind_sample <- filter(wind_long, SettlementDate == "2017-01-04")
 uniq_code <- unique(wind_sample$Code)
@@ -65,6 +76,9 @@ uk_wind_long$day_of_week <- wday(uk_wind_long$SettlementDate,label=TRUE)
 ggplot(uk_wind_long)+geom_line(aes(x=(time),y=MwHr,group=SettlementDate), alpha=.5)+
   facet_wrap(~cluster,ncol=2)
 
+
+test <- filter(uk_wind_long, SettlementDate == "2017-01-25", Code == "48W00000WHILW-1M")
+ggplot(test)+geom_line(aes(x=(time),y=MwHr,group=SettlementDate), alpha=.5)
 #Unifying the data for a daily basis
 wind_long$SettlementDate <- ymd(wind_long$SettlementDate)
 byday_wind <- wind_long %>%
@@ -265,3 +279,40 @@ df_coal_long$SettlementDate <- ymd(df_coal_long$SettlementDate)
 
 ggplot(df_coal_long)+geom_line(aes(x=(time),y=MWh,group=SettlementDate), alpha=.5)+
   facet_wrap(~cluster,ncol=2)
+
+#K-means for the total generation fuels in January 2018
+df_allfuels <- subset(df, select = c(1,2,3,4))
+df_allfuels <- spread(df_allfuels, key = "SettlementPeriod", value = "EnergySupply")
+
+colSums(is.na(df_allfuels))
+df_allfuels[is.na(df_allfuels)] <- 0
+
+store_ss_fuels<- vector("numeric", length = 20)
+for (i in 1:20) {
+  foo_fuel <- kmeans(df_allfuels[,3:50],(i+1))
+  store_ss_fuels[i] <- foo_fuel$tot.withinss
+}
+plot(2:21, store_ss_fuels, 'b')
+
+foo_fuel <- kmeans(df_allfuels[,3:50],4)
+foo_fuel$size
+
+df1_fuel <- data.frame(foo_fuel$centers)
+df1_fuel$cluster <- 1:4
+mu_long_fuel <- gather(df1_fuel, "time", "MWh", 1:48)
+mu_long_fuel$time <- as.numeric(gsub("X","",(mu_long_fuel$time)))
+ggplot(mu_long_fuel)+geom_line(aes(x=time,y=MWh,group=cluster,col=factor(cluster))) + 
+  ggtitle("All Fuels Cluster Jan2017 kmeans")
+
+
+df_allfuels$cluster <- foo_fuel$cluster
+df_allfuels_long <- gather(df_allfuels, time, MWh, 3:50)
+df_allfuels_long$time <- as.numeric(gsub("X","",(df_allfuels_long$time)))
+df_allfuels_long$SettlementDate <- ymd(df_allfuels_long$SettlementDate)
+
+ggplot(df_allfuels_long)+geom_smooth(aes(x=(time),y=remove_outliers(MWh),group=SettlementDate), alpha=.5)+
+  facet_wrap(~cluster,ncol=2)
+
+#------Trying to renove outliers
+
+
