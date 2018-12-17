@@ -69,6 +69,7 @@ ggplot(uk_wind_long)+geom_line(aes(x=(time),y=MwHr,group=SettlementDate), alpha=
 
 test <- filter(uk_wind_long, SettlementDate == "2017-01-25", Code == "48W00000WHILW-1M")
 ggplot(test)+geom_line(aes(x=(time),y=MwHr,group=SettlementDate), alpha=.5)
+
 #Unifying the data for a daily basis
 wind_long$SettlementDate <- ymd(wind_long$SettlementDate)
 byday_wind <- wind_long %>%
@@ -150,7 +151,7 @@ ggplot(price_long)+geom_line(aes(x=(time),y=price,group=SettlementDate), alpha=.
 tapply(df$EnergySupply, df$BMRA_FUEL_TYPE, FUN=sum)
 sum(df$EnergySupply)
 
-#Now we try k-means for the most importat fuel in the UK which is CCGT
+#Now we try k-means for the most important fuel in the UK which is CCGT
 
 df_CCGT_long <- filter(df, BMRA_FUEL_TYPE == "CCGT")
 df_CCGT_long <- subset(df_CCGT_long, select = c(1,2,3,4))
@@ -261,7 +262,6 @@ mu_long_coal$time <- as.numeric(gsub("X","",(mu_long_coal$time)))
 ggplot(mu_long_coal)+geom_line(aes(x=time,y=MWh,group=cluster,col=factor(cluster))) + 
   ggtitle("Coal Cluster Jan2017 kmeans")
 
-
 df_coal$cluster <- foo_coal$cluster
 df_coal_long <- gather(df_coal, time, MWh, 3:50)
 df_coal_long$time <- as.numeric(gsub("X","",(df_coal_long$time)))
@@ -300,9 +300,48 @@ df_allfuels_long <- gather(df_allfuels, time, MWh, 3:50)
 df_allfuels_long$time <- as.numeric(gsub("X","",(df_allfuels_long$time)))
 df_allfuels_long$SettlementDate <- ymd(df_allfuels_long$SettlementDate)
 
-ggplot(df_allfuels_long)+geom_smooth(aes(x=(time),y=remove_outliers(MWh),group=SettlementDate), alpha=.5)+
+ggplot(df_allfuels_long)+geom_smooth(aes(x=(time),y=MWh,group=SettlementDate), alpha=.5)+
   facet_wrap(~cluster,ncol=2)
 
 
+#Now we will analize the sum of each fuel per hour 
 
+byfuel_hour <- df %>% 
+  mutate(Day = format(ymd(SettlementDate), "%d%m%y"), Period = SettlementPeriod, Fuel = BMRA_FUEL_TYPE) %>%
+  group_by(Day,Period, Fuel) %>%
+  summarise(total = sum(EnergySupply))
+
+byfuel_hour$Day <- dmy(byfuel_hour$Day)
+
+#Now we do K-means for the total generation of each fuel per hour
+
+byfuel_hour <- spread(byfuel_hour, key = "Period", value = "total")
+colSums(is.na(byfuel_hour))
+
+store_ss_hour_fuel <- vector("numeric", length = 20)
+for (i in 1:20) {
+  foo_hour_fuel <- kmeans(byfuel_hour[,3:50],(i+1))
+  store_ss_hour_fuel[i] <- foo_hour_fuel$tot.withinss
+}
+plot(2:21, store_ss_hour_fuel, 'b')
+
+foo_hour_fuel <- kmeans(byfuel_hour[,3:50],4)
+foo_hour_fuel$size
+
+
+df1_hour_fuel <- data.frame(foo_hour_fuel$centers)
+df1_hour_fuel$cluster <- 1:4
+mu_long_hour_fuel <- gather(df1_hour_fuel, "time", "MWh", 1:48)
+mu_long_hour_fuel$time <- as.numeric(gsub("X","",(mu_long_hour_fuel$time)))
+ggplot(mu_long_hour_fuel)+geom_line(aes(x=time,y=MWh,group=cluster,col=factor(cluster))) + 
+  ggtitle("All Fuels sum in hour basis Cluster Jan2017 kmeans")
+
+
+byfuel_hour$cluster <- foo_hour_fuel$cluster
+by_fuel_hour_long <- gather(byfuel_hour, time, MWh, 3:50)
+by_fuel_hour_long$time <- as.numeric(gsub("X","",(by_fuel_hour_long$time)))
+by_fuel_hour_long$Day <- ymd(by_fuel_hour_long$Day)
+
+ggplot(by_fuel_hour_long)+geom_smooth(aes(x=(time),y=MWh,group=Day), alpha=.5)+
+  facet_wrap(~cluster,ncol=2)
 
