@@ -13,7 +13,7 @@ ServiceType <- 'csv'
 
 #Define the range that we want data from:
 start <- as.Date("01-01-17",format="%d-%m-%y")
-end   <- as.Date("31-01-17",format="%d-%m-%y")
+end   <- as.Date("31-12-17",format="%d-%m-%y")
 
 theDate <- start
 #Define the matrix that will hold the data extracted
@@ -100,10 +100,12 @@ EIC_codes_raw <- read.csv("EIC_Codes_Generation_nodupli.csv",stringsAsFactors = 
 EIC_codes_raw <- EIC_codes_raw[,-c(3,4,8,10:13,15)]
 names(EIC_codes_raw)[3] <- "Registered Resource EIC Code"
 
+generation_price$`Registered Resource EIC Code` <- as.character(generation_price$`Registered Resource EIC Code`)
+
 generation_unified <- left_join(generation_price, EIC_codes_raw, by = "Registered Resource EIC Code")
 
 #We now get a file with all the data BE CAREFUL REMOVE THIS FILE FROM YOUR GITHUB FOLDER TO DONT UPDATELOAD TO GITHUB
-write.csv(generation_unified,'generation_price_unit_JAN2017.csv')
+write.csv(generation_unified,'generation_price_unit_2017.csv')
 
 #Code to evaluate duplicity
 duplicated(EIC_codes_raw$`Registered Resource EIC Code`) | duplicated(EIC_codes_raw$`Registered Resource EIC Code`, fromLast = TRUE)
