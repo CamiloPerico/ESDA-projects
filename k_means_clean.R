@@ -3,6 +3,7 @@
 
 library(tidyverse)
 library(lubridate)
+library(mclust)
 
 df <- read.csv("generation_price_unit_2017.csv")
 df <- select(df, -c(1))
@@ -20,7 +21,7 @@ levels(df$BMRA_FUEL_TYPE)
 #We will now develop a K-means general method for any type of FUEL
 #Define the variables that you want to analize
 #INPUTS
-fuel_type <- "CCGT"
+fuel_type <- "COAL"
 n_cluster <- 4
 #Use when FILTER BY DATE
 #Date_k <- "2017-02-01"
@@ -45,6 +46,10 @@ summary(fuel_long$BMRA_FUEL_TYPE)
 summary(fuel_long$SettlementDate)
 summary(fuel_long$Code)
 
+
+
+
+?order()
 # 1. K-MEANS -----------------------------------------------------------------
 #This part begins the code to evaluate cluster with K-means method
 fuel_long <- subset(fuel_long, select = c(1,2,3,4))
@@ -55,11 +60,11 @@ colSums(is.na(fuel_long))
 colSums(is.na(fuel_spread))
 
 #We can set the NA to 0 as the line 52 DOES or we can delete those rows
-fuel_spread <- na.omit(fuel_spread)
+#fuel_spread <- na.omit(fuel_spread)
 
 #There area few NA on the the fuel_spread DF this is given that we have hours with no data.
 #We now change all the NA found in the spread dataset for zero given we cannot do k-means with empty valeus
-#fuel_spread[is.na(fuel_spread)] <- 0
+fuel_spread[is.na(fuel_spread)] <- 0
 
 #We first begin evaluating the number of cluster and how this effect the sum of squares from 1 to 20 cluster
 store_ss <- vector("numeric",length=20) 
@@ -92,8 +97,9 @@ fuel_cluster_long$SettlementDate <- ymd(fuel_cluster_long$SettlementDate)
 fuel_cluster_long$day_of_week <- wday(fuel_cluster_long$SettlementDate,label=TRUE)
 
 
-ggplot(fuel_cluster_long)+geom_line(aes(x=(Time),y=MWh,group=SettlementDate), alpha=.5)+
+ggplot(fuel_cluster_long)+geom_line(aes(x=Time,y=MWh, group=interaction(SettlementDate, Code)), alpha=.5)+
   facet_wrap(~Cluster,ncol=2) + ggtitle("Wind Cluster 2017")
+
 
 table(fuel_cluster_long[,c(3,6)])/48
 fuel_cluster_long$mth <- month(fuel_cluster_long$SettlementDate,label=TRUE) 
@@ -107,17 +113,20 @@ t(table(fuel_cluster_long[,c(3,7)])/48)
 
 visu_curves <- fuel_long
 
+visu_curves <- filter(visu_curves, SettlementDate == "2017-01-05")
+
 uniq_code <- unique(visu_curves$Code)
-random_code <- uniq_code[sample(length(uniq_code),5)]
+random_code <- uniq_code[sample(length(uniq_code),1)]
 
 ind <- NULL
 for(i in 1:length(random_code)){
   ind <- c(ind,which(visu_curves$Code==random_code[i])) }
 
 ggplot(visu_curves[ind,])+ 
-  geom_line(aes(x=as.numeric(SettlementPeriod),y=EnergySupply, group=Code,col=as.factor(Code)))
-
-
+  geom_line(aes(x=as.numeric(SettlementPeriod),y=EnergySupply, group=Code,col=as.factor(Code)), na.rm = T)+
+  ylim(0,500)
+visu_curves[ind,]
+?geom_line
 
 
 # 3. PRICE K-MEANS  -------------------------------------------------------
@@ -132,12 +141,16 @@ price_dataset_spread <- spread(price_dataset_long, key = "SettlementPeriod", val
 
 
 #Remove all Rows with one NA
-price_dataset_spread <- na.omit(price_dataset_spread)
+#price_dataset_spread <- na.omit(price_dataset_spread)
 
 #summary(price_dataset_spread)
 #We first see if we have any NA values and set them equal to zero to be able to carry the k-means
-#colSums(is.na(price_dataset_spread))
-#price_dataset_spread[is.na(price_dataset_spread)] <- 0
+colSums(is.na(price_dataset_spread))
+price_dataset_spread[is.na(price_dataset_spread)] <- 0
+
+#The 2017-05-17 was a day that had a special speak price
+#Test what happen if we remove it
+price_dataset_spread <- filter(price_dataset_spread, SettlementDate != "2017-05-17")
 
 #Now we develop the K-Means
 foo_price <- kmeans(price_dataset_spread[,2:49], n_cluster) 
@@ -157,6 +170,7 @@ price_cluster_long$Time <- as.numeric(gsub("X","",(price_cluster_long$Time)))
 price_cluster_long$SettlementDate <- ymd(price_cluster_long$SettlementDate)
 price_cluster_long$day_week <- wday(price_cluster_long$SettlementDate,label=TRUE)
 
+
 ggplot(price_cluster_long)+geom_line(aes(x=(Time),y=Price,group=SettlementDate), alpha=.5)+
   facet_wrap(~Cluster,ncol=2) + ggtitle("Price Winter Cluster 2017")
 
@@ -164,6 +178,100 @@ table(price_cluster_long[,c(2,5)])/48
 price_cluster_long$mth <- month(price_cluster_long$SettlementDate,label=TRUE) 
 price_cluster_long$mth <- factor(price_cluster_long$mth, levels = month.abb) 
 t(table(price_cluster_long[,c(2,6)])/48)
+
+
+# 3.1 CLUSTER FOR MOST PRODUCTIVE PLANTS ----------------------------------
+#Operation of plants analysis
+n_rank <- 5
+
+fuel_operation <- fuel_long
+fuel_operation <- subset(fuel_operation, select = c(1,2,3,4))
+
+
+#This corresponds to the total yearly generation of each plant
+fuel_total_generation <- fuel_operation %>%
+  group_by(Code) %>%
+  summarise(TotalGeneration = sum(EnergySupply))
+
+
+#We order them from bigger
+fuel_total_generation <- fuel_total_generation[order(fuel_total_generation$TotalGeneration, decreasing = F),] 
+
+#Code to  run the top generating plants: fuel_total_generation <- fuel_total_generation[1:n_rank,]
+#Code to run the worst generating plants: fuel_total_generation <- fuel_total_generation[(NROW(fuel_total_generation)-n_rank):NROW(fuel_total_generation),]
+fuel_total_generation <- fuel_total_generation <- fuel_total_generation[1:n_rank,]
+
+vector_plants <- fuel_total_generation[,1]
+vector_plants <- as.data.frame(vector_plants)
+vector_plants
+fuel_plants <- data.frame()
+
+
+for (i in 1:n_rank) {
+  data_plant <- filter(fuel_operation, Code == as.factor(vector_plants[i,1]))
+  fuel_plants <- rbind(fuel_plants, data_plant)
+  
+}
+
+fuel_plants$Code <- factor(fuel_plants$Code)
+levels(fuel_plants$Code)
+
+#K-Means for the plants filtered with higher production
+#This part begins the code to evaluate cluster with K-means method
+fuel_plants_spread <- spread(fuel_plants, key = "SettlementPeriod", 
+                                       value = "EnergySupply")
+
+#We look for NA in each both long and spread df
+colSums(is.na(fuel_plants))
+colSums(is.na(fuel_plants_spread))
+
+#We can set the NA to 0 as the line 52 DOES or we can delete those rows
+#fuel_spread <- na.omit(fuel_spread)
+
+#There area few NA on the the fuel_spread DF this is given that we have hours with no data.
+#We now change all the NA found in the spread dataset for zero given we cannot do k-means with empty valeus
+fuel_plants_spread[is.na(fuel_plants_spread)] <- 0
+
+#We first begin evaluating the number of cluster and how this effect the sum of squares from 1 to 20 cluster
+store_ss <- vector("numeric",length=20) 
+for(i in 1:20){
+  foo <- kmeans(fuel_plants_spread[,3:50],(i+1))
+  store_ss[i] <- foo$tot.withinss
+}
+plot(2:21,store_ss,'b')
+
+
+#We now begin our cluster, we are interested in developing K number of cluster
+foo <- kmeans(fuel_plants_spread[,3:50],n_cluster) 
+names(foo)
+foo$size
+#This results corresponds to the amount of curves that go to each cluster
+
+#Now we want to know the shape of this K clusters
+fuel_plants_kmeans <- data.frame(foo$centers)
+fuel_plants_kmeans$Cluster <- 1:n_cluster
+mu_plants_long <- gather(fuel_plants_kmeans,"Time","MWh",1:48)
+mu_plants_long$Time <- as.numeric(gsub("X","",(mu_plants_long$Time))) 
+ggplot(mu_plants_long)+geom_line(aes(x=Time,y=MWh,group=Cluster,col=factor(Cluster)))
+
+
+#Now we want to know the shape of all the curves that fit each cluster
+fuel_plants_spread$Cluster <- foo$cluster
+fuel_plants_cluster_long <- gather(fuel_plants_spread, Time,MWh,3:50)
+fuel_plants_cluster_long$Time <- as.numeric(gsub("X","",(fuel_plants_cluster_long$Time))) 
+fuel_plants_cluster_long$SettlementDate <- ymd(fuel_plants_cluster_long$SettlementDate)
+fuel_plants_cluster_long$day_of_week <- wday(fuel_plants_cluster_long$SettlementDate,label=TRUE)
+
+
+ggplot(fuel_plants_cluster_long)+geom_line(aes(x=Time,y=MWh, group=interaction(SettlementDate)), alpha=.5)+
+  facet_wrap(~Cluster,ncol=2) + ggtitle("Top X Plants Generation")
+
+
+table(fuel_plants_cluster_long[,c(3,6)])/48
+fuel_plants_cluster_long$mth <- month(fuel_plants_cluster_long$SettlementDate,label=TRUE) 
+fuel_plants_cluster_long$mth <- factor(fuel_plants_cluster_long$mth, levels = month.abb) 
+t(table(fuel_plants_cluster_long[,c(3,7)])/48)
+
 
 # 4. Hierarchical Clustering ----------------------------------------------
 
