@@ -45,20 +45,11 @@ summary(generation_price2$Price)
 summary(generation_price2$Volume)
 na.count(generation_price2)
 
-generation_price2$`48W000000DINO-5O` <- as.character(generation_price2$`48W000000DINO-5O`)
-generation_price2$`48W000000DINO-5O`[is.na(generation_price2$`48W000000DINO-5O`)] <-0
-generation_price2$`48W000000DINO-5O` <- as.numeric(generation_price2$`48W000000DINO-5O`)
-
 generation_price2[20] <- as.character(generation_price2[20])
 generation_price2[20] <- as.numeric(gsub(",", "", generation_price2[20]))
 generation_price2[20][is.na(generation_price2[20])] <-0
 generation_price2[20] <- as.numeric(generation_price2[20])
-summary(genera)
 View(generation_price2)
-
-generation_price_PrOnly <- scale(t(generation_price2[,c(4,6:220)]))
-generation_Price_TiOnly <- scale(t(generation_price2[,c(5:220)]))
-
 
 
 
@@ -74,18 +65,32 @@ generation_price4 <- scale(generation_price3)
 EIC_codes <- read.csv("EIC_Codes_Generation.csv")
 EIC_codes$Energy.Identification.Code <- gsub("-",".",EIC_codes$Energy.Identification.Code)
 generation_price2 <- read.csv("generation_price2.csv", stringsAsFactors = F)
+
+
 colnames(generation_price2) <- gsub("^X", "",  colnames(generation_price2))
 generation_price2 <- generation_price2[,-c(1)]
-generation_price2$SettlementDate <- (gsub("/", "", generation_price2$SettlementDate))
-generation_price2$SettlementDate <- dmy(generation_price2$SettlementDate)
+
+
+
+generation_price2 <- read.csv("generation_price_unit_2017v2.csv", stringsAsFactors = F)
+generation_price2 <- select(generation_price2,-c(1))
+generation_price2 <- generation_price2[,c(2,3,4,1,6,7)]
+head(generation_price2)
+generation_price2 <- unique(generation_price2)
+colnames(generation_price2)[3] <- "EIC_Code"
+generation_price2 <- spread(generation_price2, key="EIC_Code", value="EnergySupply")
+generation_price2[is.na(generation_price2)] <- 0
+
+
 generation_price2 <- data.frame(generation_price2)
 generation_price3 <- generation_price2[, -c(1:4)]
 generation_price4 <- scale(generation_price3)
 generation_price_PrOnly <- scale(generation_price2[,c(3,5:220)])
 generation_Price_VolOnly <- scale(generation_price2[,c(4:220)])
 generation_price_prtionly <- scale(t(generation_price2[,c(4:5)]))
-summary(generation_price2$SettlementDate)
 
+generation_price2$SettlementDate <- (gsub("/", "", generation_price2$SettlementDate))
+generation_price2$SettlementDate <- dmy(generation_price2$SettlementDate)
 
 ####PCA Analysis: Only Plants
 Name <- paste("PCA Analysis: Only Plants")
@@ -117,6 +122,7 @@ Plants_scores  <- abs(loading_scores)
 Plants_scores_ranked <- sort(Plants_scores, decreasing = TRUE)
 Top_20_Plants <- names(Plants_scores_ranked[1:20])
 PCA2Results <- Top_20_Plants
+PCA2Results  <- gsub("^X", "",  PCA2Results)
 PCA2ResultsDetails <- pca2$rotation[Top_20_Plants,1]
 EIC_codes$Energy.Identification.Code <- as.character(EIC_codes$Energy.Identification.Code)
 s <- 1
@@ -231,7 +237,7 @@ ggtitle(Name)
 
 ####PCA Analysis: only plants at scale
 Name <- paste("PCA Analysis: Scaled only plants ")
-pca3 <- prcomp(generation_price2[,c(5:220)],center = FALSE,scale=TRUE)
+pca3 <- prcomp(generation_price2[,c(3:220)],center = FALSE,scale=TRUE)
 str(pca3)
 plot(pca3)
 pca3x <- pca3$x
@@ -262,7 +268,7 @@ Plants_scores  <- abs(loading_scores)
 Plants_scores_ranked <- sort(Plants_scores, decreasing = TRUE)
 Top_20_Plants <- names(Plants_scores_ranked[1:20])
 PCA3Results <- Top_20_Plants
-PCA3Results
+PCA3Results <- gsub("^X", "",  PCA3Results)
 PCA3ResultsDetails <- pca3$rotation[Top_20_Plants,1]
 PCA3ResultsDetails
 s <- 1
@@ -305,6 +311,7 @@ Plants_scores  <- abs(loading_scores)
 Plants_scores_ranked <- sort(Plants_scores, decreasing = TRUE)
 Top_20_Plants <- names(Plants_scores_ranked[1:20])
 PCA4Results <- Top_20_Plants
+PCA4Results <- gsub("^X", "",  PCA4Results)
 PCA4Results
 PCA4ResultsDetails <- pca4$rotation[Top_20_Plants,1]
 PCA4ResultsDetails
@@ -314,6 +321,7 @@ for (s in 1:length(PCA4Results)) {
   PCA4ListTemp <- filter(EIC_codes, Energy.Identification.Code == PCA4Results[s]) 
   PCA4List <- rbind(PCA4List, PCA4ListTemp)
 }
+Plants_scores_ranked
 ####PCA Analisys Volume with Plants
 Name <- paste("PCA Analisys Volume with Plants")
 pca5 <- prcomp(generation_Price_VolOnly,center = FALSE,scale=FALSE)
@@ -330,7 +338,7 @@ barplot(pca5.var.per, main = "Scree Plot",  xlab = "Principal Component", ylab="
 pca5.data <- data.frame(x=pca5$x[,1], y=pca5$x[,2])
 pca5.data$Counter <- 1
 pca5.data$Samples <- cumsum(pca5.data$Counter)
-pca5.data <- pca4.data[, c(4,1:3)]
+pca5.data <- pca5.data[, c(4,1:3)]
 head(pca5.data)
 ggplot(data=pca5.data, aes(x=x, y=y, label = Samples))+
   geom_text() +
@@ -343,6 +351,7 @@ Plants_scores  <- abs(loading_scores)
 Plants_scores_ranked <- sort(Plants_scores, decreasing = TRUE)
 Top_20_Plants <- names(Plants_scores_ranked[1:20])
 PCA5Results <- Top_20_Plants
+PCA5Results <- gsub("^X", "", PCA5Results)
 PCA5Results
 PCA5ResultsDetails <- pca5$rotation[Top_20_Plants,1]
 PCA5ResultsDetails
@@ -355,4 +364,42 @@ for (s in 1:length(PCA5Results)) {
 
 
 ###############################
+Name <- paste("PCA Analisys Price & Volume with Plants")
+pca6 <- prcomp(generation_price2[,c(3:220)],center = FALSE,scale=TRUE)
+plot(pca6)
+pca6x <- pca6$x
+nrow(pca6x)
+ncol(pca6x)
+x <- (pca6$x[,1])
+y <- (pca6$x[,2])
+plot(x,y)
+pca6.var <- pca6$sdev^2
+pca6.var.per <- round(pca6.var/sum(pca6.var)*100,1)
+barplot(pca6.var.per, main = "Scree Plot",  xlab = "Principal Component", ylab="Percent Variation")
+pca6.data <- data.frame(x=pca6$x[,1], y=pca6$x[,2])
+pca6.data$Counter <- 1
+pca6.data$Samples <- cumsum(pca6.data$Counter)
+pca6.data <- pca6.data[, c(4,1:3)]
+head(pca6.data)
+ggplot(data=pca6.data, aes(x=x, y=y, label = Samples))+
+  geom_text() +
+  xlab(paste("PC1 -", pca6.var.per[1], "%", sep="")) +
+  ylab(paste("PC2 -", pca6.var.per[2], "%", sep="")) +
+  theme_bw() +
+  ggtitle(Name)
+loading_scores <- pca6$rotation[,1]
+Plants_scores  <- abs(loading_scores)
+Plants_scores_ranked <- sort(Plants_scores, decreasing = TRUE)
+Top_20_Plants <- names(Plants_scores_ranked[1:20])
+PCA6Results <- Top_20_Plants
+PCA6Results <- gsub("^X", "",  PCA6Results)
+PCA6Results
+PCA6ResultsDetails <- pca6$rotation[Top_20_Plants,1]
+PCA6ResultsDetails
+s <- 1
+PCA6List <- NULL
+for (s in 1:length(PCA6Results)) {
+  PCA6ListTemp <- filter(EIC_codes, Energy.Identification.Code == PCA6Results[s]) 
+  PCA6List <- rbind(PCA6List, PCA6ListTemp)
+}
 

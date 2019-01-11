@@ -12,8 +12,8 @@ Period <- '*'
 ServiceType <- 'csv'
 
 #Define the range that we want data from:
-start <- as.Date("01-01-17",format="%d-%m-%y")
-end   <- as.Date("31-12-17",format="%d-%m-%y")
+start <- as.Date("01-03-18",format="%d-%m-%y")
+end   <- as.Date("31-03-18",format="%d-%m-%y")
 
 theDate <- start
 #Define the matrix that will hold the data extracted
