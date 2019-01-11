@@ -1,3 +1,8 @@
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(ggbiplot)
 #This example will try to use PCA for the analysis of January 2017 for the fuels
 #We will begin from the overall aproach examinating the total fuel consumption
 
@@ -7,8 +12,33 @@ df <- select(df, SettlementDate, SettlementPeriod, everything())
 names(df)[4] = "Code"
 names(df)[14] = "Fuel"
 
+
+df_allfuel <- subset(df, select = c(1:4,6,14))
+df_wind <- filter(df_allfuel, Fuel == "WIND")
+df_wind_spread <- spread(df_wind, key = "Code", value = "EnergySupply")
+colSums(is.na(df_wind_spread))
+summary(df_wind_spread)
+df_wind_spread$SettlementDate <- as.Date(df_wind_spread$SettlementDate)
+df_wind_spread$Fuel <- NULL
+df_wind_spread$`48W00000KLGLW-1S` <- NULL
+df_wind_spread$Price <- NULL
+
+pca_wind <- prcomp(na.omit(df_wind_spread[3:62]), scale = TRUE)
+summary(pca_wind)
+ggbiplot(pca_wind,ellipse=TRUE,var.axes=T)
+
+df_wind_spread[is.na(df_wind_spread)] <- 0
+
+colSums(Filter(is.numeric, df_wind_spread))
+
+
+?prcomp
+
+# OLD CODE ----------------------------------------------------------------
+
+
 #We split the total dataset in a sample with only the data we are interested
-df_allfuel <- subset(df, select = c(1:4,14))
+df_allfuel <- subset(df, select = c(1:4,6,14))
 df_allfuel_spread <- spread(df_allfuel, key = "SettlementPeriod", value = "EnergySupply")
 colSums(is.na(df_allfuel_spread))
 df_allfuel_spread[is.na(df_allfuel_spread)] <- 0
