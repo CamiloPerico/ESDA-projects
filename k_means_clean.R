@@ -21,7 +21,7 @@ levels(df$BMRA_FUEL_TYPE)
 #We will now develop a K-means general method for any type of FUEL
 #Define the variables that you want to analize
 #INPUTS
-fuel_type <- "COAL"
+fuel_type <- "CCGT"
 n_cluster <- 4
 #Use when FILTER BY DATE
 #Date_k <- "2017-02-01"
@@ -195,7 +195,7 @@ fuel_total_generation <- fuel_operation %>%
 
 
 #We order them from bigger
-fuel_total_generation <- fuel_total_generation[order(fuel_total_generation$TotalGeneration, decreasing = F),] 
+fuel_total_generation <- fuel_total_generation[order(fuel_total_generation$TotalGeneration, decreasing = T),] 
 
 #Code to  run the top generating plants: fuel_total_generation <- fuel_total_generation[1:n_rank,]
 #Code to run the worst generating plants: fuel_total_generation <- fuel_total_generation[(NROW(fuel_total_generation)-n_rank):NROW(fuel_total_generation),]
