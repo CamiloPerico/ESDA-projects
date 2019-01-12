@@ -107,7 +107,7 @@ server <- function(input, output) {
 shinyApp(ui2, server)
 
 
-
+?fluidRow
 # WEB3 --------------------------------------------------------------------
 ui3 <- fluidPage(
   
@@ -118,7 +118,7 @@ ui3 <- fluidPage(
   hr(),
   
   fluidRow(column(12,align = "center",
-    sidebarPanel(dateRangeInput("date_range", label=h3("Date Range"),start="2017-01-01", end="2017-12-31"))
+    mainPanel(dateRangeInput("date_range", label=h3("Date Range"),start="2017-01-01", end="2017-12-31"))
   )
   ),
   fluidRow(column(6,
@@ -157,10 +157,8 @@ shinyApp(ui3, server3)
 # WEB 4 --------------------------------------------------------------------
 ui4 <- fluidPage(
   
-  title = "UK Generation Units",
-  
-  plotOutput('plot'),
-  
+  titlePanel("UK Generation Units"),
+  plotlyOutput('plot'),
   hr(),
   
   fluidRow(column(12,align = "center",
@@ -168,12 +166,12 @@ ui4 <- fluidPage(
   )
   ),
   fluidRow(column(6,
-                  selectInput(inputId = "plant", label = "Choose a Plant", choices = names(df_daily_spread) [c(2:10)]),
+                  selectInput(inputId = "plant", label = "Select Plant 1", choices = names(df_daily_spread) [c(2:10)]),
                   column(6,
-                         selectInput(inputId = "plant2", label = "Choose a Plant2", choices = names(df_daily_spread) [c(2:10)]))
+                         selectInput(inputId = "plant2", label = "Select Plant 2", choices = names(df_daily_spread) [c(2:10)]))
   )
   )
-  
+
 )
 
 server4 <- function(input, output) {
@@ -186,26 +184,21 @@ server4 <- function(input, output) {
     select(df_daily_spread,c(1,input$plant2))
   })
   
-  
-  
   # renderPlotly() also understands ggplot2 objects!
-  output$plot <- renderPlot({
+  output$plot <- renderPlotly({
     df2 <- daInput()
     df1 <- dfInput()
     p <- ggplot() +
-      geom_line(data= df1, aes(x = as.Date(Date), y = df1[,2]), colour = "Blue")+
-      geom_line(data= df2, aes(x = as.Date(Date), y = df2[,2]), colour = "Red")+
+      geom_line(data= df1, aes(x = as.Date(Date), y = df1[,2], colour = "Plant 1"))+
+      geom_line(data= df2, aes(x = as.Date(Date), y = df2[,2], colour = "Plant 2"))+
       xlim(input$date_range[1],input$date_range[2]) +
       labs(y = "Energy (MWh)",
            x = "Date")
-    p
+    ggplotly(p)
     
   })
 }
-
 shinyApp(ui4, server4)
-
-
 
 p <- ggplot(one_plant, aes(x = Date, y = `48W0000000ABTH7Y`)) +
   geom_line(alpha = 0.4) +xlim(input$date_range[1],input$date_range[2])
