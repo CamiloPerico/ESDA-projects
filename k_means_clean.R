@@ -21,7 +21,7 @@ levels(df$BMRA_FUEL_TYPE)
 #We will now develop a K-means general method for any type of FUEL
 #Define the variables that you want to analize
 #INPUTS
-fuel_type <- "CCGT"
+fuel_type <- "WIND"
 n_cluster <- 4
 #Use when FILTER BY DATE
 #Date_k <- "2017-02-01"
@@ -182,7 +182,7 @@ t(table(price_cluster_long[,c(2,6)])/48)
 
 # 3.1 CLUSTER FOR MOST PRODUCTIVE PLANTS ----------------------------------
 #Operation of plants analysis
-n_rank <- 5
+n_rank <- 10
 
 fuel_operation <- fuel_long
 fuel_operation <- subset(fuel_operation, select = c(1,2,3,4))
@@ -195,7 +195,7 @@ fuel_total_generation <- fuel_operation %>%
 
 
 #We order them from bigger
-fuel_total_generation <- fuel_total_generation[order(fuel_total_generation$TotalGeneration, decreasing = T),] 
+fuel_total_generation <- fuel_total_generation[order(fuel_total_generation$TotalGeneration, decreasing = F),] 
 
 #Code to  run the top generating plants: fuel_total_generation <- fuel_total_generation[1:n_rank,]
 #Code to run the worst generating plants: fuel_total_generation <- fuel_total_generation[(NROW(fuel_total_generation)-n_rank):NROW(fuel_total_generation),]
@@ -210,7 +210,6 @@ fuel_plants <- data.frame()
 for (i in 1:n_rank) {
   data_plant <- filter(fuel_operation, Code == as.factor(vector_plants[i,1]))
   fuel_plants <- rbind(fuel_plants, data_plant)
-  
 }
 
 fuel_plants$Code <- factor(fuel_plants$Code)
@@ -252,7 +251,15 @@ fuel_plants_kmeans <- data.frame(foo$centers)
 fuel_plants_kmeans$Cluster <- 1:n_cluster
 mu_plants_long <- gather(fuel_plants_kmeans,"Time","MWh",1:48)
 mu_plants_long$Time <- as.numeric(gsub("X","",(mu_plants_long$Time))) 
-ggplot(mu_plants_long)+geom_line(aes(x=Time,y=MWh,group=Cluster,col=factor(Cluster)))
+
+ggplot(mu_plants_long)+geom_line(aes(x=Time,y=MWh,group=Cluster,col=factor(Cluster)))+
+  labs(y= "Energy Generation (MWh)", x = "Settlement Period")+
+  scale_colour_manual(name="Cluster", values=c("red", "dark green", "blue", "purple"))+  
+  ggtitle("Wind power plants with lowest generation")+
+  theme(title = element_text(size=18, face = "bold"),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=16,face="bold"),
+        legend.text = element_text(size=16))
 
 
 #Now we want to know the shape of all the curves that fit each cluster
@@ -262,15 +269,39 @@ fuel_plants_cluster_long$Time <- as.numeric(gsub("X","",(fuel_plants_cluster_lon
 fuel_plants_cluster_long$SettlementDate <- ymd(fuel_plants_cluster_long$SettlementDate)
 fuel_plants_cluster_long$day_of_week <- wday(fuel_plants_cluster_long$SettlementDate,label=TRUE)
 
+labels <- c("1" = "Cluster 1", "2" = "Cluster 2", "3" = "Cluster 3", "4" = "Cluster 4", "5" = "Cluster 5",
+            "6" = "Cluster 6")
 
-ggplot(fuel_plants_cluster_long)+geom_line(aes(x=Time,y=MWh, group=interaction(SettlementDate)), alpha=.5)+
-  facet_wrap(~Cluster,ncol=2) + ggtitle("Top X Plants Generation")
+ggplot(fuel_plants_cluster_long)+geom_line(aes(x=Time,y=MWh, group=interaction(SettlementDate)), 
+                                             alpha=0.5, se = F, size = 0.1, colour = "black")+
+  facet_wrap(~Cluster,ncol=2, labeller = labeller(Cluster = labels)) + 
+  ggtitle("Wind power plants with lowest generation")+
+  labs(y="Energy Generation (MWh)", x = "Settlement Period")+
+  theme(title = element_text(size=18, face = "bold"),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=16,face="bold"),
+        legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 16))
 
 
 table(fuel_plants_cluster_long[,c(3,6)])/48
 fuel_plants_cluster_long$mth <- month(fuel_plants_cluster_long$SettlementDate,label=TRUE) 
 fuel_plants_cluster_long$mth <- factor(fuel_plants_cluster_long$mth, levels = month.abb) 
 t(table(fuel_plants_cluster_long[,c(3,7)])/48)
+
+a <- as.data.frame.matrix(t(table(fuel_plants_cluster_long[,c(3,7)])/48))
+
+year_results <- data.frame(table(fuel_plants_cluster_long[,c(3,7)])/48)
+year_results$Cluster <- factor(year_results$Cluster)
+
+ggplot(year_results)+geom_line(aes(x=mth,y=Freq,group=Cluster,col=factor(Cluster)))+
+  labs(y= "Number of Days", x = "Month")+
+  scale_colour_manual(name="Cluster", values=c("red", "dark green", "blue", "purple"))+  
+  ggtitle("COAL power plants with highest generation")+
+  theme(title = element_text(size=18, face = "bold"),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=16,face="bold"),
+        legend.text = element_text(size=16))
 
 
 # 4. Hierarchical Clustering ----------------------------------------------
