@@ -132,14 +132,23 @@ visu_curves[ind,]
 # 3. PRICE K-MEANS  -------------------------------------------------------
 
 #K-Means for the price
+#New prices values
+price_market <- read.csv("price_market_2017.csv")
+price_market <- select(price_market, c(12,11,10))
+price_market <- unique(price_market)
+price_market$SettlementDate <- ymd(price_market$SettlementDate)
+price_market <- filter(price_market, SettlementPeriod <=48)
+
+#---- PRICE FROM OLD Values ONLY USE WITH OLD PRICE-----
 price_dataset_long <- subset(df, select = c(1,2,6))
 price_dataset_long$SettlementDate <- ymd(price_dataset_long$SettlementDate)
 price_dataset_long <- unique(price_dataset_long)
 # SUMMER price_dataset_long <- price_dataset_long[price_dataset_long$SettlementDate >= "2017-06-21" & price_dataset_long$SettlementDate <= "2017-09-23",]
 # WINTER price_dataset_long <- price_dataset_long[price_dataset_long$SettlementDate >= "2017-01-01" & price_dataset_long$SettlementDate <= "2017-03-21",]
 price_dataset_spread <- spread(price_dataset_long, key = "SettlementPeriod", value = "Price")
+#---- ONLY USE WITH OLD PRICE
 
-
+price_dataset_spread <- spread(price_market, key = "SettlementPeriod", value = "ImbalancePriceAmount")
 #Remove all Rows with one NA
 #price_dataset_spread <- na.omit(price_dataset_spread)
 
@@ -161,8 +170,15 @@ price_kmeans <- data.frame(foo_price$centers)
 price_kmeans$Cluster <- 1:4
 mu_long_price <- gather(price_kmeans,"Time","Price",1:48)
 mu_long_price$Time <- as.numeric(gsub("X","",(mu_long_price$Time))) 
-ggplot(mu_long_price)+geom_line(aes(x=Time,y=Price,group=Cluster,col=factor(Cluster)))
 
+ggplot(mu_long_price)+geom_line(aes(x=Time,y=Price,group=Cluster,col=factor(Cluster)))+
+  scale_colour_manual(name="Cluster", values=c("red", "dark green", "blue", "purple"))+  
+  ggtitle("Price of the imbalance market in 2017")+
+  labs(y = "Price (GBP/MWh)", x = "Settlement Period")+
+  theme(title = element_text(size=18, face = "bold"),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=16,face="bold"),
+        legend.text = element_text(size=16))
 
 price_dataset_spread$Cluster <- foo_price$cluster
 price_cluster_long <- gather(price_dataset_spread,Time,Price,2:49)
@@ -172,13 +188,20 @@ price_cluster_long$day_week <- wday(price_cluster_long$SettlementDate,label=TRUE
 
 
 ggplot(price_cluster_long)+geom_line(aes(x=(Time),y=Price,group=SettlementDate), alpha=.5)+
-  facet_wrap(~Cluster,ncol=2) + ggtitle("Price Winter Cluster 2017")
+  facet_wrap(~Cluster,ncol=2, labeller = labeller(Cluster = labels)) + 
+  ggtitle("Price of the imbalance market in 2017")+
+  labs(y="Price (GBP/MWh))", x = "Settlement Period")+
+  theme(title = element_text(size=18, face = "bold"),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=16,face="bold"),
+        legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 16))
 
 table(price_cluster_long[,c(2,5)])/48
 price_cluster_long$mth <- month(price_cluster_long$SettlementDate,label=TRUE) 
 price_cluster_long$mth <- factor(price_cluster_long$mth, levels = month.abb) 
 t(table(price_cluster_long[,c(2,6)])/48)
-
+b <- as.data.frame.matrix(t(table(price_cluster_long[,c(2,6)])/48))
 
 # 3.1 CLUSTER FOR MOST PRODUCTIVE PLANTS ----------------------------------
 #Operation of plants analysis
