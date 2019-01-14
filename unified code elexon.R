@@ -3,6 +3,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyverse)
 library(lubridate)
+library(mclust)
 
 APIKey <- 'x11mhwta8mlnbb8'
 

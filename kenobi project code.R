@@ -1,9 +1,169 @@
-#This code test k-means for only wind farms during January
-#The results are hard to interpret for hourly basis which is why I analized the curve of generation per month
-
+library(httr)
+library(ggplot2)
+library(dplyr)
 library(tidyverse)
 library(lubridate)
-library(mclust)
+
+
+#The following code corresponds to the kenobi group it is divided in the following sections:
+#1. Data adquisition through API from ELEXON. 3 API develop: Generation unis, Market Price and Imbalance Price
+#2. K-means method to analyze the clusters fuel type over the year 2017. Fuel type analyzed: CCGT, COAL, NUCLEAR AND WIND
+#3. PCA develop over selected period for 4 scenarios
+#4. NEURAL NETWORK considering the 19 most important power plants delivered from PCA results
+#5. The tool for visualization
+
+
+
+# 1.  The following section corresponds to ELEXON API -------------------------
+
+
+APIKey <- 'x11mhwta8mlnbb8'
+
+#Extract data from generatio unit
+service_gen <- 'B1610'
+Period <- '*'
+ServiceType <- 'csv'
+
+#Define the range that we want data from:
+start <- as.Date("01-01-17",format="%d-%m-%y")
+end   <- as.Date("31-12-17",format="%d-%m-%y")
+
+theDate <- start
+#Define the matrix that will hold the data extracted
+generationrange <- data.frame(matrix(ncol = 19, nrow = 0))
+
+while (theDate <= end)
+{
+  url <- capture.output(cat('https://api.bmreports.com/BMRS/', service_gen, '/v1?APIKey=', APIKey,
+                            '&SettlementDate=', format(theDate),
+                            '&Period=', Period,
+                            '&ServiceType=', ServiceType, sep = ''))
+  generationloop_raw <- GET(url = url)
+  
+  generationloop_csv <- rawToChar(generationloop_raw$content)
+  generationloop_HH <- read.table(text = generationloop_csv, sep=',', fill = TRUE)
+  
+  generationloop_HH <- generationloop_HH[-(1:4),]
+  rownames(generationloop_HH) <- NULL
+  colnames(generationloop_HH) <- as.character(unlist(generationloop_HH[1,]))
+  generationloop_HH <- generationloop_HH[-1,]
+  rownames(generationloop_HH) <- NULL
+  generationloop_HH <- generationloop_HH[-c(nrow(generationloop_HH)),]
+  
+  print(url)
+  
+  generationrange <- rbind(generationrange, generationloop_HH) 
+  theDate <- theDate+1
+}
+
+# Price of the Market -----------------------------------------------------
+#Now we get the price for each settlement period
+service_price <- 'MID'
+
+price_range <- data.frame(matrix(ncol = 6, nrow = 0))
+
+theDate2 <- start
+
+while (theDate2 <= end)
+{
+  FromSettlementDate <- theDate2
+  ToSettlementDate <- theDate2
+  url6 <- capture.output(cat('https://api.bmreports.com/BMRS/', service_price, '/v1?APIKey=', APIKey,
+                             '&FromSettlementDate=', format(FromSettlementDate),
+                             '&ToSettlementDate=', format(ToSettlementDate),
+                             '&Period=', Period,
+                             '&ServiceType=', ServiceType, sep = ''))
+  
+  Bal_Mkt_Price_Loop_raw <- GET(url = url6) 
+  
+  Bal_Mkt_Price_Loop_csv <- rawToChar(Bal_Mkt_Price_Loop_raw$content)
+  Bal_Mkt_Price_Loop <- read.table(text = Bal_Mkt_Price_Loop_csv, sep=',', fill = TRUE) 
+  Bal_Mkt_Price_Loop <- Bal_Mkt_Price_Loop[-c((nrow(Bal_Mkt_Price_Loop)-48):nrow(Bal_Mkt_Price_Loop)),]
+  Bal_Mkt_Price_Loop <- Bal_Mkt_Price_Loop[-1,]
+  rownames(Bal_Mkt_Price_Loop) <- NULL
+  print(url6)
+  
+  price_range <- rbind(price_range, Bal_Mkt_Price_Loop)
+  theDate2 <- theDate2+1
+}
+
+#Now We merge the two datasets from Elexon. generationrange and price range
+#Changing the format of the date variable and renaiming the date and settlement hour to merge with price range
+generationrange$`Settlement Date` <- ymd(generationrange$`Settlement Date`)
+names(generationrange)[8] <- "V3"
+names(generationrange)[9] <- "V4"
+
+price_range$V3 <- ymd(price_range$V3)
+price_range$V4 <- as.factor(price_range$V4)
+
+#Now we do a left merge from generatin range to price range by the settlement date and hour
+generation_price <- left_join(generationrange,price_range, by = c("V3", "V4"))
+
+#Now we eliminate the column we do not want from our dataset of generation and price
+generation_price <- subset(generation_price, select = c(5,8,9,11,15,22,23))
+
+names(generation_price)[1] <- "EnergySupply"
+names(generation_price)[2] <- "SettlementDate"
+names(generation_price)[3] <- "SettlementPeriod"
+names(generation_price)[6] <- "Price"
+names(generation_price)[7] <- "Volume"
+
+#Now we merge by the EIC Code the generation price dataset with the EIC Codes generation
+
+EIC_codes_raw <- read.csv("EIC_Codes_Generation_nodupli.csv",stringsAsFactors = F)
+EIC_codes_raw <- EIC_codes_raw[,-c(3,4,8,10:13,15)]
+names(EIC_codes_raw)[3] <- "Registered Resource EIC Code"
+
+generation_price$`Registered Resource EIC Code` <- as.character(generation_price$`Registered Resource EIC Code`)
+
+generation_unified <- left_join(generation_price, EIC_codes_raw, by = "Registered Resource EIC Code")
+
+#We now get a file with all the data BE CAREFUL REMOVE THIS FILE FROM YOUR GITHUB FOLDER TO DONT UPDATELOAD TO GITHUB
+write.csv(generation_unified,'generation_price_unit_2017.csv')
+
+#Code to evaluate duplicity
+duplicated(EIC_codes_raw$`Registered Resource EIC Code`) | duplicated(EIC_codes_raw$`Registered Resource EIC Code`, fromLast = TRUE)
+
+
+# Price from Imbalance Market  -------------------------------------------------
+service_price2 <- 'B1770'
+
+price_long <- data.frame(matrix(ncol = 15, nrow = 0))
+
+theDate3 <- start
+
+while (theDate3 <= end)
+{
+  FromSettlementDate1 <- theDate3
+  ToSettlementDate <- theDate3
+  url7 <- capture.output(cat('https://api.bmreports.com/BMRS/', service_price2, '/v1?APIKey=', APIKey,
+                             '&SettlementDate=', format(FromSettlementDate1),
+                             '&Period=', Period,
+                             '&ServiceType=', ServiceType, sep = ''))
+  
+  price_new_raw <- GET(url = url7) 
+  
+  price_new_csv <- rawToChar(price_new_raw$content)
+  price_loop <- read.table(text =price_new_csv, sep=',', fill = TRUE) 
+  price_loop <-price_loop[-c(1:4),]
+  rownames(price_loop) <- NULL
+  colnames(price_loop) <- as.character(unlist(price_loop[1,]))
+  price_loop <-price_loop[-1,]
+  price_loop <-price_loop[-c(nrow(price_loop)),]
+  rownames(price_loop) <- NULL
+  print(url7)
+  
+  price_long <- rbind(price_long, price_loop)
+  theDate3 <- theDate3+1
+}
+
+write.csv(price_long,'price_market_2017.csv')
+
+
+
+
+# 2. The following section is K-MEANS ----------------------------------------
+
 
 df <- read.csv("generation_price_unit_2017.csv")
 df <- select(df, -c(1))
@@ -50,7 +210,7 @@ summary(fuel_long$Code)
 
 
 ?order()
-# 1. K-MEANS -----------------------------------------------------------------
+# 2.1 K-MEANS -----------------------------------------------------------------
 #This part begins the code to evaluate cluster with K-means method
 fuel_long <- subset(fuel_long, select = c(1,2,3,4))
 fuel_spread <- spread(fuel_long, key = "SettlementPeriod", value = "EnergySupply")
@@ -108,7 +268,7 @@ t(table(fuel_cluster_long[,c(3,7)])/48)
 
 
 
-# 2. VISUALIZATION OF CURVE -----------------------------------------------
+# 2.2 VISUALIZATION OF CURVE -----------------------------------------------
 #Visualization of curves per a selected day 
 
 visu_curves <- fuel_long
@@ -129,7 +289,7 @@ visu_curves[ind,]
 ?geom_line
 
 
-# 3. PRICE K-MEANS  -------------------------------------------------------
+# 3.3 PRICE K-MEANS  -------------------------------------------------------
 
 #K-Means for the price
 #New prices values
@@ -139,18 +299,20 @@ price_market <- unique(price_market)
 price_market$SettlementDate <- ymd(price_market$SettlementDate)
 price_market <- filter(price_market, SettlementPeriod <=48)
 
-#---- PRICE FROM OLD Values ONLY USE WITH OLD PRICE-----
+# 3.31 PRICE FROM OLD Values ONLY USE WITH OLD PRICE-----
 price_dataset_long <- subset(df, select = c(1,2,6))
 price_dataset_long$SettlementDate <- ymd(price_dataset_long$SettlementDate)
 price_dataset_long <- unique(price_dataset_long)
 # SUMMER price_dataset_long <- price_dataset_long[price_dataset_long$SettlementDate >= "2017-06-21" & price_dataset_long$SettlementDate <= "2017-09-23",]
 # WINTER price_dataset_long <- price_dataset_long[price_dataset_long$SettlementDate >= "2017-01-01" & price_dataset_long$SettlementDate <= "2017-03-21",]
-
 #---- ONLY USE WITH OLD PRICE
-#price_dataset_spread <- spread(price_dataset_long, key = "SettlementPeriod", value = "Price")
+price_dataset_spread <- spread(price_dataset_long, key = "SettlementPeriod", value = "Price")
+#---- ONLY USE WITH OLD PRICE
 
-#--- USE WITH THE NEW PRICDE IMBALANCE
+#---- ONLY USE WITH NEW PRICE IMBLAANCE MARKET
 price_dataset_spread <- spread(price_market, key = "SettlementPeriod", value = "ImbalancePriceAmount")
+#---- ONLY USE WITH NEW PRICE IMBLAANCE MARKET
+
 #Remove all Rows with one NA
 #price_dataset_spread <- na.omit(price_dataset_spread)
 
@@ -205,7 +367,7 @@ price_cluster_long$mth <- factor(price_cluster_long$mth, levels = month.abb)
 t(table(price_cluster_long[,c(2,6)])/48)
 b <- as.data.frame.matrix(t(table(price_cluster_long[,c(2,6)])/48))
 
-# 3.1 CLUSTER FOR MOST PRODUCTIVE PLANTS ----------------------------------
+# 3.4 CLUSTER FOR MOST PRODUCTIVE PLANTS ----------------------------------
 #Operation of plants analysis
 n_rank <- 10
 
@@ -243,7 +405,7 @@ levels(fuel_plants$Code)
 #K-Means for the plants filtered with higher production
 #This part begins the code to evaluate cluster with K-means method
 fuel_plants_spread <- spread(fuel_plants, key = "SettlementPeriod", 
-                                       value = "EnergySupply")
+                             value = "EnergySupply")
 
 #We look for NA in each both long and spread df
 colSums(is.na(fuel_plants))
@@ -298,7 +460,7 @@ labels <- c("1" = "Cluster 1", "2" = "Cluster 2", "3" = "Cluster 3", "4" = "Clus
             "6" = "Cluster 6")
 
 ggplot(fuel_plants_cluster_long)+geom_line(aes(x=Time,y=MWh, group=interaction(SettlementDate)), 
-                                             alpha=0.5, se = F, size = 0.1, colour = "black")+
+                                           alpha=0.5, se = F, size = 0.1, colour = "black")+
   facet_wrap(~Cluster,ncol=2, labeller = labeller(Cluster = labels)) + 
   ggtitle("Wind power plants with lowest generation")+
   labs(y="Energy Generation (MWh)", x = "Settlement Period")+
@@ -329,87 +491,7 @@ ggplot(year_results)+geom_line(aes(x=mth,y=Freq,group=Cluster,col=factor(Cluster
         legend.text = element_text(size=16))
 
 
-# 4. Hierarchical Clustering ----------------------------------------------
-
-d <- dist(fuel_spread[,3:50], method = 'euclidean')
-mode(d)
-dim(as.matrix(d))
-h <- hclust(d, method = 'single')
-plot(h)
 
 
-h <- hclust(d,method="average") 
-plot(h)
-rect.hclust(h , k = 6)
-?rect.hclust
-clusterCut <- cutree(h, 6) 
-table(clusterCut)
-
-fuel_spread %<>% mutate(clusterCut)
-
-fuel_hclus_long <- gather(fuel_spread, Time, MWh, 3:50) 
-fuel_hclus_long$Time <- as.numeric(gsub("X","",(fuel_hclus_long$Time))) 
-fuel_hclus_long$SettlementDate <- ymd(fuel_hclus_long$SettlementDate) 
-
-ggplot(fuel_hclus_long)+geom_line(aes(x=(Time),y=MWh,group=SettlementDate), alpha=.5)+
-  facet_wrap(~clusterCut,ncol=2)
-
-
-# Code not USED -----------------------------------------------------------
-
-
-#We want to see first the total generation of each fuel for january
-tapply(df$EnergySupply, df$BMRA_FUEL_TYPE, FUN=sum)
-sum(df$EnergySupply)
-
-#Unifying the data for a daily basis
-wind_long$SettlementDate <- ymd(wind_long$SettlementDate)
-byday_wind <- wind_long %>%
-  mutate(day= format(SettlementDate, "%d/%m/%y"), code = Code) %>%
-  group_by(day, code) %>%
-  summarise(total = sum(EnergySupply))
-
-#Now we try again to get random days
-uniq_code1 <- unique(byday_wind$code)
-random_code1 <- uniq_code1[sample(length(uniq_code1),5)]
-
-ind1 <- NULL
-for(i in 1:length(random_code1)){
-  ind1 <- c(ind1,which(byday_wind$code==random_code1[i])) }
-
-ggplot(byday_wind[ind1,])+ 
-  geom_line(aes(x=as.factor(day),y=total, group=code,col=as.factor(code)))
-
-#Now we try K-means WIND per day
-byday_wind_spread <- spread(byday_wind, key = "day", value = "total")
-byday_wind_spread[is.na(byday_wind_spread)] <- 0
-
-
-store_ss1 <- vector("numeric",length=20) 
-for(i in 1:20){
-  foo1 <- kmeans(byday_wind_spread[,2:32],(i+1))
-  store_ss1[i] <- foo1$tot.withinss
-}
-plot(2:21,store_ss1,'b')
-
-foo1 <- kmeans(byday_wind_spread[,2:32],4) 
-names(foo1)
-foo1$size
-
-#We now graph de 4 cluster
-df2 <- data.frame(foo1$centers)
-df2$cluster <- 1:4
-mu_long1 <- gather(df2,"date","MwHr",1:31)
-mu_long1$date <- substring(mu_long1$date,2)
-ggplot(mu_long1)+geom_line(aes(x=date,y=MwHr,group=cluster,col=factor(cluster)))
-
-#We now graph all the curves from each cluster
-byday_wind_spread$cluster <- foo1$cluster
-byday_wind_long <- gather(byday_wind_spread,date,MwHr,2:32)
-byday_wind_long$date <- ymd(byday_wind_long$date)
-
-
-ggplot(byday_wind_long)+geom_line(aes(x=(date),y=MwHr,group=code), alpha=.5)+
-  facet_wrap(~cluster,ncol=2)
 
 
