@@ -162,18 +162,19 @@ ui4 <- fluidPage(
   hr(),
   
   fluidRow(column(12,align = "center",
-                  sidebarPanel(dateRangeInput("date_range", label=h3("Date Range"),start="2017-01-01", end="2017-12-31"))
+                  sidebarPanel(dateRangeInput("date_range", label=h2("Date Range"),start="2017-01-01", end="2017-12-31"))
   )
   ),
-  fluidRow(column(6,
-                  selectInput(inputId = "plant", label = "Select Plant 1", choices = names(df_daily_spread) [c(2:10)]),
-                  column(6,
-                         selectInput(inputId = "plant2", label = "Select Plant 2", choices = names(df_daily_spread) [c(2:10)]))
+  fluidPage(
+  fluidRow(column(12,
+                  selectInput(inputId = "plant", label = "Select Plant 1", choices = names(df_daily_spread) [c(2:236)]),
+            column(12,
+                  selectInput(inputId = "plant2", label = "Select Plant 2", choices = names(df_daily_spread) [c(2:236)]))
   )
   )
-
+  )
 )
-
+?sidebarPanel
 server4 <- function(input, output) {
   dfInput <- reactive({
     ##subsetting is a bit tricky here to id the column on which to subset        
@@ -206,3 +207,5 @@ p <- ggplot(one_plant, aes(x = Date, y = `48W0000000ABTH7Y`)) +
 ?dateRangeInput
 
 ?lubridate
+str(df_daily_spread)
+str(info_plants)
