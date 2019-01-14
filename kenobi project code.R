@@ -521,6 +521,7 @@ generation_Price_VolOnly <- scale(generation_price2[,c(4:length(generation_price
 generation_price_prtionly <- scale(t(generation_price2[,c(4:5)]))
 
 
+
 # 3.2 P3CA Analysis: only plants at scale --------------------------------------
 ####PCA Analysis: only plants at scale
 Name3 <- paste("PCA1 Analysis: Only Plants ")
@@ -714,6 +715,8 @@ for (s in 1:length(PCA6Results)) {
 PCA6List <- PCA6List[,c(7,16,17)]
 Title <- paste("Price, Volume and Plants Scenario. Most influential Plants from",start,"to",end,".csv")
 write.csv(PCA6List,Title)
+
+
 
 
 
