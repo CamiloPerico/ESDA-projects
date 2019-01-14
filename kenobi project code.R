@@ -8,6 +8,7 @@ library(neuralnet)
 
 
 #The following code corresponds to the kenobi group it is divided in the following sections:
+#*RECOMMENDATION*: RUN EACH SECTION SEPARATELY
 #1. Data adquisition through API from ELEXON. 3 API develop: Generation unis, Market Price and Imbalance Price
 #2. K-means method to analyze the clusters fuel type over the year 2017. Fuel type analyzed: CCGT, COAL, NUCLEAR AND WIND
 #3. PCA develop over selected period for 4 scenarios
@@ -28,7 +29,7 @@ ServiceType <- 'csv'
 
 #Define the range that we want data from:
 start <- as.Date("01-01-17",format="%d-%m-%y")
-end   <- as.Date("31-12-17",format="%d-%m-%y")
+end   <- as.Date("04-01-17",format="%d-%m-%y")
 
 theDate <- start
 #Define the matrix that will hold the data extracted
